@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
+import glob
 import os
 import re
-import glob
+import subprocess
 
 root_path = os.path.join(os.getenv("HOME"), "Projects")
 grab_paths = [
@@ -12,6 +13,10 @@ grab_paths = [
     "host_workspace/nanopb/pb_*.h",
     "host_workspace/nanopb/pb_*.c",
     "host_workspace/nanopb/pb.h",
+]
+
+targets_to_rebuild = [
+    ("host_workspace", "//stream_utils/..."),
 ]
 
 file_rename_rules = [('\.cc$', '.cpp')]
@@ -35,7 +40,15 @@ def MakeOutputName(fname):
     return output_name
 
 
+def RerunBuilds():
+    for path, target in targets_to_rebuild:
+        subprocess.run(['bazelisk', 'build', target],
+                       cwd=os.path.join(root_path, path))
+
+
 if __name__ == "__main__":
+    RerunBuilds()
+
     files_to_grab = []
     for path in grab_paths:
         glob_files = glob.glob(os.path.join(root_path, path), recursive=True)
