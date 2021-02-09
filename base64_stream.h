@@ -17,15 +17,6 @@ class Base64EncodeStream : public Stream<uint8_t> {
   BitPipe<uint16_t> pipe_{ShiftDirection::kLeft};
 };
 
-//class Base64DecodeStream : public Stream<uint8_t> {
-// public:
-//  bool Write(const uint8_t& token) final;
-//  bool Flush();
-//
-// private:
-//  BitPipe<uint16_t> pipe_{ShiftDirection::kLeft};
-//}
-
 }  // namespace util
 
 #endif  // BASE64_STREAM_H_

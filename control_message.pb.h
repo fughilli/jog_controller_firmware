@@ -9,11 +9,41 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+/* Enum definitions */
+typedef enum _Control_Axis {
+    Control_Axis_AXIS_X = 0,
+    Control_Axis_AXIS_Y = 1,
+    Control_Axis_AXIS_Z = 2,
+    Control_Axis_AXIS_4 = 3,
+    Control_Axis_AXIS_5 = 4,
+    Control_Axis_AXIS_6 = 5
+} Control_Axis;
+
+typedef enum _Control_Multiplier {
+    Control_Multiplier_MULT_X1 = 0,
+    Control_Multiplier_MULT_X10 = 1,
+    Control_Multiplier_MULT_X100 = 2
+} Control_Multiplier;
+
 /* Struct definitions */
 typedef struct _Control {
     bool has_value;
     int32_t value;
+    bool has_axis;
+    Control_Axis axis;
+    bool has_multiplier;
+    Control_Multiplier multiplier;
 } Control;
+
+
+/* Helper constants for enums */
+#define _Control_Axis_MIN Control_Axis_AXIS_X
+#define _Control_Axis_MAX Control_Axis_AXIS_6
+#define _Control_Axis_ARRAYSIZE ((Control_Axis)(Control_Axis_AXIS_6+1))
+
+#define _Control_Multiplier_MIN Control_Multiplier_MULT_X1
+#define _Control_Multiplier_MAX Control_Multiplier_MULT_X100
+#define _Control_Multiplier_ARRAYSIZE ((Control_Multiplier)(Control_Multiplier_MULT_X100+1))
 
 
 #ifdef __cplusplus
@@ -21,15 +51,19 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define Control_init_default                     {false, 0}
-#define Control_init_zero                        {false, 0}
+#define Control_init_default                     {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN}
+#define Control_init_zero                        {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define Control_value_tag                        1
+#define Control_axis_tag                         2
+#define Control_multiplier_tag                   3
 
 /* Struct field encoding specification for nanopb */
 #define Control_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, INT32,    value,             1)
+X(a, STATIC,   OPTIONAL, INT32,    value,             1) \
+X(a, STATIC,   OPTIONAL, UENUM,    axis,              2) \
+X(a, STATIC,   OPTIONAL, UENUM,    multiplier,        3)
 #define Control_CALLBACK NULL
 #define Control_DEFAULT NULL
 
@@ -39,7 +73,7 @@ extern const pb_msgdesc_t Control_msg;
 #define Control_fields &Control_msg
 
 /* Maximum encoded size of messages (where known) */
-#define Control_size                             11
+#define Control_size                             15
 
 #ifdef __cplusplus
 } /* extern "C" */

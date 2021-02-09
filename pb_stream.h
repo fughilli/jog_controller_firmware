@@ -1,8 +1,8 @@
 #ifndef PB_STREAM_H_
 #define PB_STREAM_H_
 
-#include "stream.h"
 #include "pb_encode.h"
+#include "stream.h"
 
 namespace util {
 
@@ -20,6 +20,6 @@ pb_ostream_t WrapStream(util::Stream<uint8_t>* stream) {
   };
 }
 
-}
+}  // namespace util
 
 #endif  // PB_STREAM_H_
