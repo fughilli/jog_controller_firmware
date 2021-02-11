@@ -15,6 +15,7 @@
 #include "base64_stream.h"
 #include "control_message.pb.h"
 #include "credentials.h"
+#include "keypad.h"
 #include "pb_stream.h"
 #include "stream.h"
 
@@ -38,7 +39,7 @@ class ArduinoStreamAdapter : public util::Stream<uint8_t> {
   ::Stream* stream_;
 };
 
-ESP32Encoder encoder;
+// ESP32Encoder encoder;
 WiFiClient client;
 ArduinoStreamAdapter client_stream(&client);
 util::Base64EncodeStream b64_encode_stream;
@@ -48,9 +49,11 @@ pb_ostream_t pb_stream;
 
 Adafruit_ST7735 tft = Adafruit_ST7735(25, 27, 26);
 
+Keypad keypad{&Wire, 0x20, 2};
+
 // 21, 19, 18, 5, 17, 16,    4,   0,  2
 //  4,  Z,  Y, X,  5,  6, X100, X10, X1
-constexpr int kSwitch4 = 21;
+// constexpr int kSwitch4 = 21;
 constexpr int kSwitchZ = 19;
 constexpr int kSwitchY = 18;
 constexpr int kSwitchX = 5;
@@ -58,11 +61,10 @@ constexpr int kSwitch5 = 17;
 constexpr int kSwitch6 = 16;
 constexpr int kSwitchX100 = 4;
 constexpr int kSwitchX10 = 0;
-constexpr int kSwitchX1 = 2;
+// constexpr int kSwitchX1 = 2;
 
 void InitSwitches() {
-  pinMode(kSwitch4, INPUT_PULLUP);
-  pinMode(kSwitch4, INPUT_PULLUP);
+  // pinMode(kSwitch4, INPUT_PULLUP);
   pinMode(kSwitchZ, INPUT_PULLUP);
   pinMode(kSwitchY, INPUT_PULLUP);
   pinMode(kSwitchX, INPUT_PULLUP);
@@ -70,7 +72,7 @@ void InitSwitches() {
   pinMode(kSwitch6, INPUT_PULLUP);
   pinMode(kSwitchX100, INPUT_PULLUP);
   pinMode(kSwitchX10, INPUT_PULLUP);
-  pinMode(kSwitchX1, INPUT_PULLUP);
+  // pinMode(kSwitchX1, INPUT_PULLUP);
 }
 
 void ReadSwitches(Control* control) {
@@ -86,9 +88,9 @@ void ReadSwitches(Control* control) {
   } else if (digitalRead(kSwitchZ) == LOW) {
     control->has_axis = true;
     control->axis = Control_Axis_AXIS_Z;
-  } else if (digitalRead(kSwitch4) == LOW) {
-    control->has_axis = true;
-    control->axis = Control_Axis_AXIS_4;
+    //} else if (digitalRead(kSwitch4) == LOW) {
+    //  control->has_axis = true;
+    //  control->axis = Control_Axis_AXIS_4;
   } else if (digitalRead(kSwitch5) == LOW) {
     control->has_axis = true;
     control->axis = Control_Axis_AXIS_5;
@@ -97,10 +99,11 @@ void ReadSwitches(Control* control) {
     control->axis = Control_Axis_AXIS_6;
   }
 
-  if (digitalRead(kSwitchX1) == LOW) {
-    control->has_multiplier = true;
-    control->multiplier = Control_Multiplier_MULT_X1;
-  } else if (digitalRead(kSwitchX10) == LOW) {
+  // if (digitalRead(kSwitchX1) == LOW) {
+  //  control->has_multiplier = true;
+  //  control->multiplier = Control_Multiplier_MULT_X1;
+  //} else
+  if (digitalRead(kSwitchX10) == LOW) {
     control->has_multiplier = true;
     control->multiplier = Control_Multiplier_MULT_X10;
   } else if (digitalRead(kSwitchX100) == LOW) {
@@ -109,10 +112,22 @@ void ReadSwitches(Control* control) {
   }
 }
 
+void KeyHandler(int key, KeyState state) {
+  if (state == KeyState::kPressed) {
+  control.has_key_pressed = true;
+  control.key_pressed |= (1 << key);
+  }
+
+  if (state == KeyState::kReleased) {
+  control.has_key_released = true;
+  control.key_released |= (1 << key);
+  }
+}
+
 void ExtMain() {
   ESP32Encoder::useInternalWeakPullResistors = NONE;
   Serial.begin(115200);
-  encoder.attachFullQuad(22, 23);
+  // encoder.attachFullQuad(22, 23);
   SPI.setFrequency(20000000);
   SPI.begin(14, 12, 13, 15);
   tft.initR(INITR_GREENTAB);
@@ -123,6 +138,10 @@ void ExtMain() {
   tft.setTextWrap(true);
   tft.setRotation(1);
   tft.fillRect(0, 0, 160, 128, ST77XX_BLACK);
+
+  Wire.begin();
+  keypad.RegisterKeyHandler(&KeyHandler);
+  keypad.Begin();
 
   // We start by connecting to a WiFi network
 
@@ -192,13 +211,16 @@ void ExtLoop() {
   }
 
   while (true) {
+    control = Control_init_default;
     // This will send the request to the server
     unsigned long timeout = millis();
 
-    control.has_value = true;
-    control.value = static_cast<int32_t>(encoder.getCount());
+    // control.has_value = true;
+    // control.value = static_cast<int32_t>(encoder.getCount());
 
     ReadSwitches(&control);
+
+    keypad.Poll();
 
     client.write('^');
     pb_encode(&pb_stream, Control_fields, &control);
