@@ -33,6 +33,10 @@ typedef struct _Control {
     Control_Axis axis;
     bool has_multiplier;
     Control_Multiplier multiplier;
+    bool has_key_pressed;
+    int32_t key_pressed;
+    bool has_key_released;
+    int32_t key_released;
 } Control;
 
 
@@ -51,19 +55,23 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define Control_init_default                     {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN}
-#define Control_init_zero                        {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN}
+#define Control_init_default                     {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN, false, 0, false, 0}
+#define Control_init_zero                        {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN, false, 0, false, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define Control_value_tag                        1
 #define Control_axis_tag                         2
 #define Control_multiplier_tag                   3
+#define Control_key_pressed_tag                  4
+#define Control_key_released_tag                 5
 
 /* Struct field encoding specification for nanopb */
 #define Control_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, INT32,    value,             1) \
 X(a, STATIC,   OPTIONAL, UENUM,    axis,              2) \
-X(a, STATIC,   OPTIONAL, UENUM,    multiplier,        3)
+X(a, STATIC,   OPTIONAL, UENUM,    multiplier,        3) \
+X(a, STATIC,   OPTIONAL, INT32,    key_pressed,       4) \
+X(a, STATIC,   OPTIONAL, INT32,    key_released,      5)
 #define Control_CALLBACK NULL
 #define Control_DEFAULT NULL
 
@@ -73,7 +81,7 @@ extern const pb_msgdesc_t Control_msg;
 #define Control_fields &Control_msg
 
 /* Maximum encoded size of messages (where known) */
-#define Control_size                             15
+#define Control_size                             37
 
 #ifdef __cplusplus
 } /* extern "C" */
