@@ -1,5 +1,6 @@
 #include "extmain.h"
 
+#include <Adafruit_MCP23017.h>
 #include <Adafruit_ST7735.h>
 #include <EEPROM.h>
 #include <ESP32Encoder.h>
@@ -39,7 +40,7 @@ class ArduinoStreamAdapter : public util::Stream<uint8_t> {
   ::Stream* stream_;
 };
 
-// ESP32Encoder encoder;
+ESP32Encoder encoder;
 WiFiClient client;
 ArduinoStreamAdapter client_stream(&client);
 util::Base64EncodeStream b64_encode_stream;
@@ -49,85 +50,128 @@ pb_ostream_t pb_stream;
 
 Adafruit_ST7735 tft = Adafruit_ST7735(25, 27, 26);
 
-Keypad keypad{&Wire, 0x20, 2};
+Keypad keypad{&Wire, 0x24, 19};
 
-// 21, 19, 18, 5, 17, 16,    4,   0,  2
-//  4,  Z,  Y, X,  5,  6, X100, X10, X1
-// constexpr int kSwitch4 = 21;
-constexpr int kSwitchZ = 19;
-constexpr int kSwitchY = 18;
-constexpr int kSwitchX = 5;
-constexpr int kSwitch5 = 17;
-constexpr int kSwitch6 = 16;
-constexpr int kSwitchX100 = 4;
-constexpr int kSwitchX10 = 0;
-// constexpr int kSwitchX1 = 2;
+Adafruit_MCP23017 io_expander;
+
+bool port_a_flag = false;
+bool port_b_flag = false;
+
+// 18, 5 for MCP interrupts
+//
+void Mcp23017PortAIinterrupt() { port_a_flag = true; }
+void Mcp23017PortBIinterrupt() { port_b_flag = true; }
 
 void InitSwitches() {
-  // pinMode(kSwitch4, INPUT_PULLUP);
-  pinMode(kSwitchZ, INPUT_PULLUP);
-  pinMode(kSwitchY, INPUT_PULLUP);
-  pinMode(kSwitchX, INPUT_PULLUP);
-  pinMode(kSwitch5, INPUT_PULLUP);
-  pinMode(kSwitch6, INPUT_PULLUP);
-  pinMode(kSwitchX100, INPUT_PULLUP);
-  pinMode(kSwitchX10, INPUT_PULLUP);
-  // pinMode(kSwitchX1, INPUT_PULLUP);
+  io_expander.begin(0, &Wire);
+
+  pinMode(18, INPUT_PULLUP);
+  pinMode(5, INPUT_PULLUP);
+  attachInterrupt(18, &Mcp23017PortAIinterrupt, FALLING);
+  attachInterrupt(5, &Mcp23017PortBIinterrupt, FALLING);
+
+  io_expander.pinMode(0, OUTPUT);
+  io_expander.digitalWrite(0, LOW);
+
+  for (int i = 6; i <= 15; ++i) {
+    io_expander.pullUp(i, 1);
+    io_expander.setupInterruptPin(i, CHANGE);
+  }
+
+  io_expander.setupInterrupts(false, true, LOW);
 }
 
 void ReadSwitches(Control* control) {
   control->has_axis = false;
   control->has_multiplier = false;
 
-  if (digitalRead(kSwitchX) == LOW) {
-    control->has_axis = true;
-    control->axis = Control_Axis_AXIS_X;
-  } else if (digitalRead(kSwitchY) == LOW) {
-    control->has_axis = true;
-    control->axis = Control_Axis_AXIS_Y;
-  } else if (digitalRead(kSwitchZ) == LOW) {
-    control->has_axis = true;
-    control->axis = Control_Axis_AXIS_Z;
-    //} else if (digitalRead(kSwitch4) == LOW) {
-    //  control->has_axis = true;
-    //  control->axis = Control_Axis_AXIS_4;
-  } else if (digitalRead(kSwitch5) == LOW) {
-    control->has_axis = true;
-    control->axis = Control_Axis_AXIS_5;
-  } else if (digitalRead(kSwitch6) == LOW) {
-    control->has_axis = true;
-    control->axis = Control_Axis_AXIS_6;
+  if (port_a_flag) {
+    port_a_flag = false;
+    control->has_port_a_flag = true;
+    control->port_a_flag = true;
   }
 
-  // if (digitalRead(kSwitchX1) == LOW) {
-  //  control->has_multiplier = true;
-  //  control->multiplier = Control_Multiplier_MULT_X1;
-  //} else
-  if (digitalRead(kSwitchX10) == LOW) {
-    control->has_multiplier = true;
-    control->multiplier = Control_Multiplier_MULT_X10;
-  } else if (digitalRead(kSwitchX100) == LOW) {
-    control->has_multiplier = true;
-    control->multiplier = Control_Multiplier_MULT_X100;
+  if (port_b_flag) {
+    port_b_flag = false;
+    control->has_port_b_flag = true;
+    control->port_b_flag = true;
   }
+
+  uint16_t mask = io_expander.readGPIOAB();
+
+  uint8_t axis_mask = util::GetField<uint16_t>(mask, 6, 8);
+
+  control->has_axis = true;
+  switch (util::CountLeadingZeros<uint8_t>(~(axis_mask | 0xc0))) {
+    case 2:
+      control->axis = Control_Axis_AXIS_6;
+      break;
+    case 3:
+      control->axis = Control_Axis_AXIS_5;
+      break;
+    case 4:
+      control->axis = Control_Axis_AXIS_4;
+      break;
+    case 5:
+      control->axis = Control_Axis_AXIS_Z;
+      break;
+    case 6:
+      control->axis = Control_Axis_AXIS_Y;
+      break;
+    case 7:
+      control->axis = Control_Axis_AXIS_X;
+      break;
+    default:
+      control->has_axis = false;
+  }
+
+  uint8_t multiplier_mask = util::GetField<uint16_t>(mask, 2, 14);
+
+  control->has_multiplier = true;
+  switch (util::CountLeadingZeros<uint8_t>(~(multiplier_mask | 0xfc))) {
+    case 6:
+      control->multiplier = Control_Multiplier_MULT_X100;
+      break;
+    case 7:
+      control->multiplier = Control_Multiplier_MULT_X10;
+      break;
+    default:
+      control->multiplier = Control_Multiplier_MULT_X1;
+      break;
+  }
+
+  bool estop = util::GetField<uint16_t>(mask, 1, 7);
+  if (estop) {
+    control->has_estop = true;
+    control->estop = estop;
+  }
+
+  bool feedhold = util::GetField<uint16_t>(mask, 1, 6);
+  if (feedhold) {
+    control->has_feedhold = true;
+    control->feedhold = feedhold;
+  }
+
+  control->has_port_mask = true;
+  control->port_mask = mask;
 }
 
 void KeyHandler(int key, KeyState state) {
   if (state == KeyState::kPressed) {
-  control.has_key_pressed = true;
-  control.key_pressed |= (1 << key);
+    control.has_key_pressed = true;
+    control.key_pressed |= (1 << key);
   }
 
   if (state == KeyState::kReleased) {
-  control.has_key_released = true;
-  control.key_released |= (1 << key);
+    control.has_key_released = true;
+    control.key_released |= (1 << key);
   }
 }
 
 void ExtMain() {
   ESP32Encoder::useInternalWeakPullResistors = NONE;
   Serial.begin(115200);
-  // encoder.attachFullQuad(22, 23);
+  encoder.attachFullQuad(34, 35);
   SPI.setFrequency(20000000);
   SPI.begin(14, 12, 13, 15);
   tft.initR(INITR_GREENTAB);
@@ -136,7 +180,7 @@ void ExtMain() {
 
   tft.setTextColor(ST77XX_WHITE);
   tft.setTextWrap(true);
-  tft.setRotation(1);
+  tft.setRotation(3);
   tft.fillRect(0, 0, 160, 128, ST77XX_BLACK);
 
   Wire.begin();
@@ -199,6 +243,22 @@ void UpdateDisplay(const Control& new_control) {
   }
 }
 
+void WriteControl() {
+  static Control last_control = Control_init_default;
+
+  if (memcmp(&control, &last_control, sizeof(Control)) == 0) {
+    return;
+  }
+
+  client.write('^');
+  pb_encode(&pb_stream, Control_fields, &control);
+  b64_encode_stream.Flush();
+  client.write("$\r\n");
+  pb_stream.bytes_written = 0;
+
+  last_control = control;
+}
+
 void ExtLoop() {
   Serial.print("connecting to ");
   Serial.println(kHost);
@@ -215,18 +275,14 @@ void ExtLoop() {
     // This will send the request to the server
     unsigned long timeout = millis();
 
-    // control.has_value = true;
-    // control.value = static_cast<int32_t>(encoder.getCount());
+    control.has_value = true;
+    control.value = static_cast<int32_t>(encoder.getCount());
 
     ReadSwitches(&control);
 
     keypad.Poll();
 
-    client.write('^');
-    pb_encode(&pb_stream, Control_fields, &control);
-    b64_encode_stream.Flush();
-    client.write("$\r\n");
-    pb_stream.bytes_written = 0;
+    WriteControl();
 
     UpdateDisplay(control);
 

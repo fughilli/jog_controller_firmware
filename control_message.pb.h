@@ -37,6 +37,16 @@ typedef struct _Control {
     int32_t key_pressed;
     bool has_key_released;
     int32_t key_released;
+    bool has_port_a_flag;
+    bool port_a_flag;
+    bool has_port_b_flag;
+    bool port_b_flag;
+    bool has_port_mask;
+    uint32_t port_mask;
+    bool has_feedhold;
+    bool feedhold;
+    bool has_estop;
+    bool estop;
 } Control;
 
 
@@ -55,8 +65,8 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define Control_init_default                     {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN, false, 0, false, 0}
-#define Control_init_zero                        {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN, false, 0, false, 0}
+#define Control_init_default                     {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
+#define Control_init_zero                        {false, 0, false, _Control_Axis_MIN, false, _Control_Multiplier_MIN, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define Control_value_tag                        1
@@ -64,6 +74,11 @@ extern "C" {
 #define Control_multiplier_tag                   3
 #define Control_key_pressed_tag                  4
 #define Control_key_released_tag                 5
+#define Control_port_a_flag_tag                  6
+#define Control_port_b_flag_tag                  7
+#define Control_port_mask_tag                    8
+#define Control_feedhold_tag                     9
+#define Control_estop_tag                        10
 
 /* Struct field encoding specification for nanopb */
 #define Control_FIELDLIST(X, a) \
@@ -71,7 +86,12 @@ X(a, STATIC,   OPTIONAL, INT32,    value,             1) \
 X(a, STATIC,   OPTIONAL, UENUM,    axis,              2) \
 X(a, STATIC,   OPTIONAL, UENUM,    multiplier,        3) \
 X(a, STATIC,   OPTIONAL, INT32,    key_pressed,       4) \
-X(a, STATIC,   OPTIONAL, INT32,    key_released,      5)
+X(a, STATIC,   OPTIONAL, INT32,    key_released,      5) \
+X(a, STATIC,   OPTIONAL, BOOL,     port_a_flag,       6) \
+X(a, STATIC,   OPTIONAL, BOOL,     port_b_flag,       7) \
+X(a, STATIC,   OPTIONAL, UINT32,   port_mask,         8) \
+X(a, STATIC,   OPTIONAL, BOOL,     feedhold,          9) \
+X(a, STATIC,   OPTIONAL, BOOL,     estop,            10)
 #define Control_CALLBACK NULL
 #define Control_DEFAULT NULL
 
@@ -81,7 +101,7 @@ extern const pb_msgdesc_t Control_msg;
 #define Control_fields &Control_msg
 
 /* Maximum encoded size of messages (where known) */
-#define Control_size                             37
+#define Control_size                             51
 
 #ifdef __cplusplus
 } /* extern "C" */
