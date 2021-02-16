@@ -60,6 +60,40 @@ int CountLeadingZeros(T value) {
   return count;
 }
 
+template <typename T>
+int CountLeadingZerosField(T value, int bits, int offset) {
+  T compare_mask = 1;
+  compare_mask <<= ((bits - 1) + offset);
+  int count = 0;
+  while (count < bits) {
+    if (compare_mask & value) {
+      return count;
+    }
+
+    ++count;
+    compare_mask >>= 1;
+  }
+
+  return count;
+}
+
+template <typename T>
+int CountTrailingOnesField(T value, int bits, int offset) {
+  T compare_mask = 1;
+  compare_mask <<= offset;
+  int count = 0;
+  while (count < bits) {
+    if (!(compare_mask & value)) {
+      return count;
+    }
+
+    ++count;
+    compare_mask <<= 1;
+  }
+
+  return count;
+}
+
 }  // namespace util
 
 #endif  // BITS_H_
